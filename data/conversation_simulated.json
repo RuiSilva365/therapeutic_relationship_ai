@@ -1,0 +1,62 @@
+{
+  "participants": [
+    { "name": "Rui" },
+    { "name": "Maria" }
+  ],
+  "messages": [
+    {
+      "sender_name": "Rui",
+      "timestamp_ms": 1712205600000,
+      "content": "Bom dia, dormiste bem?"
+    },
+    {
+      "sender_name": "Maria",
+      "timestamp_ms": 1712207400000,
+      "content": "Sim! E tu?"
+    },
+    {
+      "sender_name": "Rui",
+      "timestamp_ms": 1712208000000,
+      "content": "Mais ou menos... sonhei com o trabalho outra vez."
+    },
+    {
+      "sender_name": "Maria",
+      "timestamp_ms": 1712208600000,
+      "content": "Tens mesmo andado muito stressado com isso..."
+    },
+    {
+      "sender_name": "Rui",
+      "timestamp_ms": 1712212200000,
+      "content": "Sim, e às vezes sinto que não te dou atenção suficiente por causa disso."
+    },
+    {
+      "sender_name": "Maria",
+      "timestamp_ms": 1712212800000,
+      "content": "Não te preocupes, eu percebo. Mas quero que estejas bem também."
+    },
+    {
+      "sender_name": "Rui",
+      "timestamp_ms": 1712298600000,
+      "content": "Gostava de fazermos algo juntos este fim de semana. Só nós os dois."
+    },
+    {
+      "sender_name": "Maria",
+      "timestamp_ms": 1712300400000,
+      "content": "Claro! Ia adorar. Um passeio ou um jantar?"
+    },
+    {
+      "sender_name": "Rui",
+      "timestamp_ms": 1712301000000,
+      "content": "Jantar num sítio especial. Depois vemos o pôr-do-sol."
+    },
+    {
+      "sender_name": "Maria",
+      "timestamp_ms": 1712301600000,
+      "content": "Perfeito!"
+    }
+  ],
+  "title": "Rui, Maria",
+  "is_still_participant": true,
+  "thread_type": "Regular",
+  "thread_path": "inbox/rui_maria"
+}
