@@ -1,4 +1,4 @@
-import json
+from datetime import datetime  # Adicionar esta importaçãoimport json
 import os
 import requests  # type: ignore
 from ai.ai_base import BaseAI
@@ -14,36 +14,36 @@ class RelationalAI(BaseAI):
         self.memory = memory or {"weekly_reports": []}
 
     def generate_feedback(self, rui_feedback: dict, maria_feedback: dict) -> dict:
-        """
-        Constrói o prompt combinando os feedbacks de Rui e Maria, chama a API e atualiza a memória.
-        :param rui_feedback: Dicionário com o feedback da RuiAI.
-        :param maria_feedback: Dicionário com o feedback da MariaAI.
-        :return: Dicionário com as chaves 'feedback' e 'analysis'.
-        """
+        
+        
         prompt = self._construct_prompt(rui_feedback, maria_feedback)
         response = self._call_model_api(prompt)
-        # A resposta do modelo deve ter a chave "choices" contendo o texto
-        choices = response.get("choices", [])
-        if choices and len(choices) > 0:
-            full_text = choices[0].get("text", "").strip()
-        else:
-            full_text = "Sem feedback gerado."
-        # Neste exemplo, tratamos toda a resposta como feedback; a análise pode ser processada separadamente se necessário.
-        feedback = full_text
-        analysis = "Análise não separada."
+        feedback_text = response.get("choices", [{}])[0].get("text", "").strip()
         
-        # Atualiza a memória com o novo relatório
-        self.memory["weekly_reports"].append({
-            "feedback": feedback,
-            "analysis": analysis,
-            "summary": {
-                "rui_points": sum(len(v) if isinstance(v, (list, tuple)) else 1 for v in rui_feedback.values()),
-                "maria_points": sum(len(v) if isinstance(v, (list, tuple)) else 1 for v in maria_feedback.values())
-            }
+        # Extrair positivos, negativos e conclusão (simplificado)
+        positivos = []
+        negativos = []
+        conclusao = ""
+        for line in feedback_text.split("\n"):
+            line = line.strip()
+            if "pontos positivos" in line.lower():
+                positivos.append(line)
+            elif "pontos negativos" in line.lower():
+                negativos.append(line)
+            elif "resumo" in line.lower() or "conclusão" in line.lower():
+                conclusao = line
+        
+        # Atualizar memória
+        self.memory.setdefault("dinamicas_relacionais", []).append({
+            "data": datetime.now().strftime("%Y-%m-%d"),
+            "positivos": positivos,
+            "negativos": negativos,
+            "conclusao": conclusao
         })
+        
         return {
-            "feedback": feedback,
-            "analysis": analysis
+            "feedback": feedback_text,
+            "analysis": "Análise não separada."
         }
 
     def _construct_prompt(self, rui_feedback: dict, maria_feedback: dict) -> str:
