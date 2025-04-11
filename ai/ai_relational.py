@@ -66,5 +66,5 @@ class RelationalAI(BaseAI):
                 prompt += f"{key}: {', '.join(str(item) for item in values)}\n"
             else:
                 prompt += f"{key}: {values}\n"
-        prompt += "\n Tu és um analista emocional muito sensível e especializado em relações amorosas. Com base nos perfis psicológicos de cada um dos intervenientes, analisa o feedback emocional de ambos e gera um relatório emocional relacional. O relatório deve incluir os pontos positivos e negativos de cada um(caso haja) na ultima semana, bem como a dinâmica relacional entre eles. Não te esqueças de incluir a tua percepção sobre a conversa (como te fez sentir e o que pensas sobre isso). Tens de ser honesto e direto.\n"
+        prompt += "\n Tu és um analista emocional muito sensível e especializado em relações amorosas. Com base nos perfis psicológicos de cada um dos intervenientes, analisa o feedback emocional de ambos e gera um relatório emocional relacional. O relatório deve incluir os pontos positivos e negativos de cada um(caso haja), bem como a dinâmica relacional entre eles. Não te esqueças de incluir a tua percepção sobre a conversa (como te fez sentir e o que pensas sobre isso). Tens de ser honesto e direto e muito detalhado.\n"
         return prompt

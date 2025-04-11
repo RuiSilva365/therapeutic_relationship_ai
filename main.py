@@ -23,9 +23,53 @@ def save_memory(path, data):
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def load_conversations(path):
-    with open(path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+def load_conversations(directory):
+    """
+    Load and merge conversation data from all JSON files in the specified directory.
+    Normalizes participant names and sorts messages by timestamp_ms.
+    
+    Args:
+        directory (str): Path to the directory containing JSON files (e.g., message_1.json).
+    
+    Returns:
+        dict: Merged conversation data with participants and normalized messages.
+    """
+    merged_data = {"participants": [], "messages": []}
+    name_mapping = {
+        "Maria Passos": "Maria",
+        "Rui Silva": "Rui"
+    }
+
+    json_files = [f for f in os.listdir(directory) if f.endswith('.json')]
+    if not json_files:
+        raise FileNotFoundError(f"No JSON files found in {directory}")
+
+    for json_file in json_files:
+        file_path = os.path.join(directory, json_file)
+        with open(file_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+            
+            # Merge participants (avoid duplicates)
+            for participant in data.get("participants", []):
+                name = participant.get("name")
+                normalized_name = name_mapping.get(name, name)
+                if not any(p["name"] == normalized_name for p in merged_data["participants"]):
+                    merged_data["participants"].append({"name": normalized_name})
+
+            # Process messages
+            for message in data.get("messages", []):
+                normalized_message = {
+                    "sender_name": name_mapping.get(message.get("sender_name"), message.get("sender_name")),
+                    "timestamp_ms": message.get("timestamp_ms"),
+                    "content": message.get("content", "[Audio message]" if message.get("audio_files") else "")
+                }
+                merged_data["messages"].append(normalized_message)
+
+    # Sort messages by timestamp_ms (ascending)
+    merged_data["messages"].sort(key=lambda x: x["timestamp_ms"])
+    return merged_data
+
+
 
 def save_report(report):
     today = datetime.today().strftime('%Y-%m-%d')
@@ -77,8 +121,9 @@ ai_maria = MariaAI(memory=maria_memory, model_url=MODEL_URL)
 ai_relational = RelationalAI(memory=relational_memory, model_url=MODEL_URL)
 
 # Carregar mensagens
-conversation_data = load_conversations('data/conversation_simulated.json')
+conversation_data = load_conversations('data')
 messages = conversation_data.get("messages", [])
+
 recent_messages = messages #filter_last_week(messages)
 
 print(f"🔍 Mensagens filtradas: {len(recent_messages)} mensagens na última semana.")
@@ -115,7 +160,7 @@ save_memory(maria_memory_path, ai_maria.memory)
 save_memory(relational_memory_path, ai_relational.memory)
 save_report(final_report)
 
-print("\n📊 RELATÓRIO FINAL GERADO COM SUCESSO:")
-print(json.dumps(final_report, indent=2, ensure_ascii=False))
-print("\n✅ Memórias atualizadas e relatório salvo.")
-print("🔄 Fim do ciclo semanal de feedback.")
+print("\n=== RESUMO FINAL ===")
+print("🧠 Rui:", json.dumps(rui_feedback, indent=2, ensure_ascii=False))
+print("🧠 Maria:", json.dumps(maria_feedback, indent=2, ensure_ascii=False))
+print("❤️ Relacional:", json.dumps(final_report, indent=2, ensure_ascii=False))
