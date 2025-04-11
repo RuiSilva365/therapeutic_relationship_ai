@@ -202,7 +202,7 @@ class RuiAI:
 
     def ask_model(self, prompt: str) -> dict:
         headers = {'Content-Type': 'application/json'}
-        data = {'model': 'openhermes-2.5-mistral-7b', 'prompt': prompt, 'max_tokens': 800}
+        data = {'model': 'openhermes-2.5-mistral-7b', 'prompt': prompt, 'max_tokens': 1000}
         print(f"📡 Enviando requisição para API: {data['model']}, max_tokens={data['max_tokens']}")
         try:
             response = requests.post(f"{self.model_url}/v1/completions", headers=headers, json=data)

@@ -177,7 +177,7 @@ class MariaAI:
 
     def ask_model(self, prompt: str) -> dict:
         headers = {'Content-Type': 'application/json'}
-        data = {'model': 'openhermes-2.5-mistral-7b', 'prompt': prompt, 'max_tokens': 800}
+        data = {'model': 'openhermes-2.5-mistral-7b', 'prompt': prompt, 'max_tokens': 1000}
         try:
             response = requests.post(f"{self.model_url}/v1/completions", headers=headers, json=data)
             response.raise_for_status()
