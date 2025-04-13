@@ -7,15 +7,6 @@ from ai.ai_base import BaseAI
 class RuiAI(BaseAI):
     def __init__(self, memory: dict, model_url: str):
         super().__init__(memory, model_url)
-        self.memory = memory or {
-            "personalidade": "Indefinida", 
-            "valores": [], 
-            "gatilhos_emocionais": [], 
-            "reflexoes": [], 
-            "planos": [], 
-            "elogios": [],
-            "relationship_metrics": []
-        }
         self.MAX_TOKENS_PER_BATCH = 2000
 
     def format_conversation(self, blocks: list) -> str:
@@ -27,36 +18,53 @@ class RuiAI(BaseAI):
             response_timestamp = datetime.fromtimestamp(response_msg["timestamp_ms"] / 1000).strftime("%Y-%m-%d %H:%M:%S")
             input_sender = "Eu" if input_msg["sender"] == "Rui" else "Maria"
             response_sender = "Eu" if response_msg["sender"] == "Rui" else "Maria"
-            formatted += f"[{input_timestamp}] {input_sender}: {input_msg['message']}\n"
-            formatted += f"[{response_timestamp}] {response_sender}: {response_msg['message']}\n"
+            input_message = self.fix_encoding(input_msg['message'])
+            response_message = self.fix_encoding(response_msg['message'])
+            formatted += f"[{input_timestamp}] {input_sender}: {input_message}\n"
+            formatted += f"[{response_timestamp}] {response_sender}: {response_message}\n"
         return formatted.strip()
 
     def generate_initial_memory(self, blocks: list):
         batches = self._split_into_batches(blocks)
-        print(f"📝 Gerando memória inicial para Rui em {len(batches)} lotes.")
-
-        accumulated_profile = {
-            "personalidade": "Indefinida",
-            "valores": [],
-            "gatilhos_emocionais": [],
-            "reflexoes": [],
-            "planos": [],
-            "elogios": []
-        }
-
         for i, batch in enumerate(batches):
             conversation_text = self.format_conversation(batch)
-            print(f"📋 Texto analisado para Rui, lote {i+1}:\n{conversation_text}\n")
             prompt = f"""
-Analisa esta conversa entre Rui e Maria (lote {i+1}/{len(batches)}).
+Tu és um psicólogo analisando Rui com base nesta conversa (lote {i+1}/{len(batches)}).
 - 'Eu' refere-se a Rui; 'Maria' é a outra pessoa.
-- Foca apenas nas mensagens de Rui para personalidade, valores e gatilhos.
-- Usa a data '2025-04-12' para reflexões.
-Retorna SOMENTE um JSON com:
-- personalidade: str (ex.: "introspectivo", "Indefinida" se não claro)
-- valores: lista de str (ex.: ["conexão", "honestidade"])
-- gatilhos_emocionais: lista de str (ex.: ["stress", "rejeição"])
-Sem texto fora do JSON. Use exemplos da conversa. Responda em UTF-8.
+- Foca nas mensagens de Rui para entender sua personalidade, valores, emoções e dinâmicas relacionais.
+- Usa mensagens de Maria como contexto.
+- Interpreta o tom, subtexto e padrões para inferir estados psicológicos.
+- Usa a data '2025-04-12'.
+- Não inclua citações diretas como "Maria disse X" ou "Rui disse Y".
+- Retorna SOMENTE um JSON válido com:
+  - personality: {{"traits": ["string"], "description": "string"}}
+  - core_values: [{{"value": "string", "manifestation": "string", "evidence": "string"}}]
+  - emotional_patterns: [{{"emotion": "string", "frequency": "string", "triggers": ["string"], "impact": "string"}}]
+  - relational_dynamics: {{"strengths": ["string"], "challenges": ["string"], "patterns": ["string"]}}
+  - struggles: [{{"issue": "string", "context": "string", "reflection": "string"}}]
+  - memories: [{{"date": "YYYY-MM-DD", "event": "string", "emotion": "string", "reflection": "string"}}]
+  - reflexoes: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
+  - planos: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
+  - elogios: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
+  - relationship_metrics: [{{"metric": "string", "value": "string", "context": "string"}}]
+  - insights: [{{"aspecto": "string", "texto": "string"}}]
+- Exemplo de JSON válido:
+  {{
+    "personality": {{"traits": ["optimista"], "description": "Sou optimista mas sensível."}},
+    "core_values": [{{"value": "honestidade", "manifestation": "Busco clareza nas relações.", "evidence": "Expressei meu desconforto abertamente."}}],
+    "emotional_patterns": [{{"emotion": "saudade", "frequency": "frequente", "triggers": ["Falta de respostas claras"], "impact": "Questiono a conexão."}}],
+    "relational_dynamics": {{"strengths": ["Abertura"], "challenges": ["Insegurança"], "patterns": ["Busco validação"]}},
+    "struggles": [{{"issue": "Insegurança", "context": "Conversas curtas", "reflection": "Preciso confiar mais."}}],
+    "memories": [{{"date": "2025-04-12", "event": "Conversa breve", "emotion": "Saudade", "reflection": "Senti falta de proximidade."}}],
+    "reflexoes": [{{"data": "2025-04-12", "texto": "Eu me sinto mais leve quando falo abertamente."}}],
+    "planos": [{{"data": "2025-04-12", "texto": "Quero ser mais direto com Maria."}}],
+    "elogios": [{{"data": "2025-04-12", "texto": "Fui honesto comigo mesmo hoje."}}],
+    "relationship_metrics": [{{"metric": "Proximidade", "value": "Baixa", "context": "Respostas curtas de Maria"}}],
+    "insights": [{{"aspecto": "Saudade", "texto": "Surge quando não me sinto ouvido."}}]
+  }}
+- Usa aspas duplas para TODAS as chaves e valores de string.
+- Garante sintaxe JSON válida, sem texto fora do JSON.
+- Responda em UTF-8, preservando caracteres portugueses (ex.: 'não', 'sensível').
 Conversa:
 {conversation_text}
 """
@@ -64,60 +72,77 @@ Conversa:
                 response = self._call_model_api(prompt)
                 profile_text = response.get("choices", [{}])[0].get("text", "{}").strip()
                 profile_text = self._clean_json(profile_text)
-                print(f"📜 Resposta parseada para Rui, lote {i+1}: {profile_text[:200]}...")
+                print(f"📜 Perfil gerado para Rui, lote {i+1}: {profile_text[:200]}...")
                 try:
                     profile_data = json.loads(profile_text)
-                except json.JSONDecodeError:
-                    json_match = re.search(r'\{[\s\S]*\}', profile_text)
-                    if json_match:
-                        profile_data = json.loads(json_match.group(0))
+                    if profile_data:
+                        self.update_memory(profile_data)
                     else:
-                        print(f"❌ Sem JSON válido no lote {i+1}")
-                        continue
-                if profile_data.get("personalidade") and profile_data["personalidade"] != "Indefinida":
-                    accumulated_profile["personalidade"] = profile_data["personalidade"]
-                accumulated_profile["valores"] = list(set(accumulated_profile["valores"] + [
-                    str(v) for v in profile_data.get("valores", []) if isinstance(v, str)
-                ]))
-                accumulated_profile["gatilhos_emocionais"] = list(set(accumulated_profile["gatilhos_emocionais"] + [
-                    str(v) for v in profile_data.get("gatilhos_emocionais", []) if isinstance(v, str)
-                ]))
+                        print(f"⚠️ JSON vazio para Rui, lote {i+1}, pulando atualização.")
+                except json.JSONDecodeError as e:
+                    print(f"❌ Erro de JSON no lote {i+1}: {str(e)}")
+                    continue
             except Exception as e:
                 print(f"❌ Erro no lote {i+1}: {str(e)}")
                 continue
 
-        self.memory.update(accumulated_profile)
-        self.memory.setdefault("reflexoes", [])
-        self.memory.setdefault("planos", [])
-        self.memory.setdefault("elogios", [])
-        self.memory.setdefault("relationship_metrics", [])
+        print(f"🔍 Estado de core_values antes da deduplicação: {self.memory['core_values']}")
+        # Deduplicate safely
+        valid_core_values = []
+        for item in self.memory["core_values"]:
+            if isinstance(item, dict) and "value" in item:
+                valid_core_values.append(item)
+            else:
+                print(f"🗑️ Entrada inválida em deduplicação de core_values: {item}")
+        self.memory["core_values"] = list({v["value"]: v for v in valid_core_values}.values())
+        self.memory["personality"]["traits"] = list(set(self.memory["personality"]["traits"]))
+        self.memory["emotional_patterns"] = list({e["emotion"]: e for e in self.memory["emotional_patterns"] if isinstance(e, dict) and "emotion" in e}.values())
 
     def analyze(self, blocks: list) -> dict:
         batches = self._split_into_batches(blocks)
-        accumulated_feedback = {
-            "reflexoes": [],
-            "planos": [],
-            "elogios": [],
-            "valores": self.memory.get("valores", []),
-            "gatilhos_emocionais": self.memory.get("gatilhos_emocionais", [])
-        }
-
+        accumulated_feedback = {k: v.copy() for k, v in self.MEMORY_SCHEMA.items()}
         for i, batch in enumerate(batches):
             conversation_text = self.format_conversation(batch)
             print(f"📋 Texto analisado para Rui, lote {i+1}:\n{conversation_text}\n")
             prompt = f"""
-Tu és o Rui. Analisa esta conversa (lote {i+1}/{len(batches)}).
+Tu és o Rui, refletindo sobre esta conversa (lote {i+1}/{len(batches)}).
 - 'Eu' refere-se a Rui; 'Maria' é a outra pessoa.
-- Fala na primeira pessoa apenas para mensagens de Rui.
+- Fala na primeira pessoa para reflexões, planos e elogios.
 - Usa mensagens de Maria como contexto.
-- Usa a data '2025-04-12' para reflexões, planos e elogios.
-Retorna SOMENTE um JSON com:
-- reflexoes: lista de {{data: "YYYY-MM-DD", texto: str}}
-- planos: lista de {{data: "YYYY-MM-DD", texto: str}}
-- elogios: lista de {{data: "YYYY-MM-DD", texto: str}}
-- valores: lista de str
-- gatilhos_emocionais: lista de str
-Sem texto fora do JSON. Use exemplos da conversa. Responda em UTF-8.
+- Usa a data '2025-04-12'.
+- Não inclua citações diretas como "Maria disse X" ou "Rui disse Y".
+- Reflexões devem conter 'eu', 'meu' ou 'minha' e expressar pensamentos ou sentimentos pessoais.
+- Elogios devem ser meus aspectos positivos, como "Fui honesto ao expressar meu sentimento".
+- Baseia-te no perfil psicológico: {json.dumps(self.memory, ensure_ascii=False)}.
+- Retorna SOMENTE um JSON válido com:
+  - personality: {{"traits": ["string"], "description": "string"}}
+  - core_values: [{{"value": "string", "manifestation": "string", "evidence": "string"}}]
+  - emotional_patterns: [{{"emotion": "string", "frequency": "string", "triggers": ["string"], "impact": "string"}}]
+  - relational_dynamics: {{"strengths": ["string"], "challenges": ["string"], "patterns": ["string"]}}
+  - struggles: [{{"issue": "string", "context": "string", "reflection": "string"}}]
+  - memories: [{{"date": "YYYY-MM-DD", "event": "string", "emotion": "string", "reflection": "string"}}]
+  - reflexoes: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
+  - planos: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
+  - elogios: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
+  - relationship_metrics: [{{"metric": "string", "value": "string", "context": "string"}}]
+  - insights: [{{"aspecto": "string", "texto": "string"}}]
+- Exemplo de JSON válido:
+  {{
+    "personality": {{"traits": ["optimista"], "description": "Sou optimista mas sensível."}},
+    "core_values": [{{"value": "honestidade", "manifestation": "Busco clareza nas relações.", "evidence": "Expressei meu desconforto abertamente."}}],
+    "emotional_patterns": [{{"emotion": "saudade", "frequency": "frequente", "triggers": ["Falta de respostas claras"], "impact": "Questiono a conexão."}}],
+    "relational_dynamics": {{"strengths": ["Abertura"], "challenges": ["Insegurança"], "patterns": ["Busco validação"]}},
+    "struggles": [{{"issue": "Insegurança", "context": "Conversas curtas", "reflection": "Preciso confiar mais."}}],
+    "memories": [{{"date": "2025-04-12", "event": "Conversa breve", "emotion": "Saudade", "reflection": "Senti falta de proximidade."}}],
+    "reflexoes": [{{"data": "2025-04-12", "texto": "Eu me sinto mais leve quando falo abertamente."}}],
+    "planos": [{{"data": "2025-04-12", "texto": "Quero ser mais direto com Maria."}}],
+    "elogios": [{{"data": "2025-04-12", "texto": "Fui honesto comigo mesmo hoje."}}],
+    "relationship_metrics": [{{"metric": "Proximidade", "value": "Baixa", "context": "Respostas curtas de Maria"}}],
+    "insights": [{{"aspecto": "Saudade", "texto": "Surge quando não me sinto ouvido."}}]
+  }}
+- Usa aspas duplas para TODAS chaves e valores de string.
+- Garante sintaxe JSON válida, sem texto fora do JSON.
+- Responda em UTF-8, preservando caracteres portugueses (ex.: 'não', 'sensível').
 Conversa:
 {conversation_text}
 """
@@ -128,37 +153,40 @@ Conversa:
                 print(f"📜 Resposta parseada para Rui, lote {i+1}: {feedback_text[:200]}...")
                 try:
                     data = json.loads(feedback_text)
-                except json.JSONDecodeError:
-                    json_match = re.search(r'\{[\s\S]*\}', feedback_text)
-                    if json_match:
-                        data = json.loads(json_match.group(0))
-                    else:
-                        print(f"❌ Sem JSON válido no lote {i+1}")
-                        continue
-                accumulated_feedback["reflexoes"].extend([
-                    r for r in data.get("reflexoes", []) if isinstance(r, dict) and "data" in r and "texto" in r
-                ])
-                accumulated_feedback["planos"].extend([
-                    p for p in data.get("planos", []) if isinstance(p, dict) and "data" in p and "texto" in p
-                ])
-                accumulated_feedback["elogios"].extend([
-                    e for e in data.get("elogios", []) if isinstance(e, dict) and "data" in e and "texto" in e
-                ])
-                accumulated_feedback["valores"] = list(set(accumulated_feedback["valores"] + [
-                    str(v) for v in data.get("valores", []) if isinstance(v, str)
-                ]))
-                accumulated_feedback["gatilhos_emocionais"] = list(set(accumulated_feedback["gatilhos_emocionais"] + [
-                    str(v) for v in data.get("gatilhos_emocionais", []) if isinstance(v, str)
-                ]))
+                    filtered_reflexoes = []
+                    for reflexao in data.get("reflexoes", []):
+                        texto = reflexao.get("texto", "").lower()
+                        if ("maria disse" not in texto and
+                            any(word in texto for word in ["eu ", "meu ", "minha "]) and
+                            reflexao.get("data", "") == "2025-04-12"):
+                            filtered_reflexoes.append(reflexao)
+                        else:
+                            print(f"🗑️ Reflexão descartada: {reflexao}")
+                    data["reflexoes"] = filtered_reflexoes
+                    filtered_elogios = []
+                    for elogio in data.get("elogios", []):
+                        texto = elogio.get("texto", "").lower()
+                        if ("maria disse" not in texto and
+                            any(word in texto for word in ["eu ", "meu ", "minha ", "fui "]) and
+                            elogio.get("data", "") == "2025-04-12"):
+                            filtered_elogios.append(elogio)
+                        else:
+                            print(f"🗑️ Elogio descartado: {elogio}")
+                    data["elogios"] = filtered_elogios
+                    for key in accumulated_feedback:
+                        if key in data:
+                            if isinstance(accumulated_feedback[key], list):
+                                accumulated_feedback[key].extend(data[key])
+                            elif isinstance(accumulated_feedback[key], dict):
+                                accumulated_feedback[key].update(data[key])
+                except json.JSONDecodeError as e:
+                    print(f"❌ Erro de JSON no lote {i+1}: {str(e)}")
+                    continue
             except Exception as e:
                 print(f"❌ Erro no lote {i+1}: {str(e)}")
                 continue
 
-        self.memory["reflexoes"].extend(accumulated_feedback["reflexoes"])
-        self.memory["planos"].extend(accumulated_feedback["planos"])
-        self.memory["elogios"].extend(accumulated_feedback["elogios"])
-        self.memory["valores"] = list(set(self.memory["valores"] + accumulated_feedback["valores"]))
-        self.memory["gatilhos_emocionais"] = list(set(self.memory["gatilhos_emocionais"] + accumulated_feedback["gatilhos_emocionais"]))
+        self.update_memory(accumulated_feedback)
         return accumulated_feedback
 
     def _split_into_batches(self, blocks: list) -> list:
@@ -166,7 +194,6 @@ Conversa:
         current_batch = []
         current_tokens = 0
         words_per_token = 0.75
-
         for block in blocks:
             block_text = self.format_conversation([block])
             token_count = math.ceil(len(block_text.split()) / words_per_token)
