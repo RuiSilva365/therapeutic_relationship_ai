@@ -1,7 +1,5 @@
 from datetime import datetime
 import json
-import re
-import math
 from ai.ai_base import BaseAI
 
 class RuiAI(BaseAI):
@@ -25,186 +23,134 @@ class RuiAI(BaseAI):
         return formatted.strip()
 
     def generate_initial_memory(self, blocks: list):
-        batches = self._split_into_batches(blocks)
-        for i, batch in enumerate(batches):
-            conversation_text = self.format_conversation(batch)
-            prompt = f"""
-Tu és um psicólogo analisando Rui com base nesta conversa (lote {i+1}/{len(batches)}).
-- 'Eu' refere-se a Rui; 'Maria' é a outra pessoa.
-- Foca nas mensagens de Rui para entender sua personalidade, valores, emoções e dinâmicas relacionais.
-- Usa mensagens de Maria como contexto.
-- Interpreta o tom, subtexto e padrões para inferir estados psicológicos.
-- Usa a data '2025-04-12'.
-- Não inclua citações diretas como "Maria disse X" ou "Rui disse Y".
-- Retorna SOMENTE um JSON válido com:
-  - personality: {{"traits": ["string"], "description": "string"}}
-  - core_values: [{{"value": "string", "manifestation": "string", "evidence": "string"}}]
-  - emotional_patterns: [{{"emotion": "string", "frequency": "string", "triggers": ["string"], "impact": "string"}}]
-  - relational_dynamics: {{"strengths": ["string"], "challenges": ["string"], "patterns": ["string"]}}
-  - struggles: [{{"issue": "string", "context": "string", "reflection": "string"}}]
-  - memories: [{{"date": "YYYY-MM-DD", "event": "string", "emotion": "string", "reflection": "string"}}]
-  - reflexoes: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
-  - planos: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
-  - elogios: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
-  - relationship_metrics: [{{"metric": "string", "value": "string", "context": "string"}}]
-  - insights: [{{"aspecto": "string", "texto": "string"}}]
-- Exemplo de JSON válido:
-  {{
-    "personality": {{"traits": ["optimista"], "description": "Sou optimista mas sensível."}},
-    "core_values": [{{"value": "honestidade", "manifestation": "Busco clareza nas relações.", "evidence": "Expressei meu desconforto abertamente."}}],
-    "emotional_patterns": [{{"emotion": "saudade", "frequency": "frequente", "triggers": ["Falta de respostas claras"], "impact": "Questiono a conexão."}}],
-    "relational_dynamics": {{"strengths": ["Abertura"], "challenges": ["Insegurança"], "patterns": ["Busco validação"]}},
-    "struggles": [{{"issue": "Insegurança", "context": "Conversas curtas", "reflection": "Preciso confiar mais."}}],
-    "memories": [{{"date": "2025-04-12", "event": "Conversa breve", "emotion": "Saudade", "reflection": "Senti falta de proximidade."}}],
-    "reflexoes": [{{"data": "2025-04-12", "texto": "Eu me sinto mais leve quando falo abertamente."}}],
-    "planos": [{{"data": "2025-04-12", "texto": "Quero ser mais direto com Maria."}}],
-    "elogios": [{{"data": "2025-04-12", "texto": "Fui honesto comigo mesmo hoje."}}],
-    "relationship_metrics": [{{"metric": "Proximidade", "value": "Baixa", "context": "Respostas curtas de Maria"}}],
-    "insights": [{{"aspecto": "Saudade", "texto": "Surge quando não me sinto ouvido."}}]
-  }}
-- Usa aspas duplas para TODAS as chaves e valores de string.
-- Garante sintaxe JSON válida, sem texto fora do JSON.
-- Responda em UTF-8, preservando caracteres portugueses (ex.: 'não', 'sensível').
-Conversa:
-{conversation_text}
-"""
-            try:
-                response = self._call_model_api(prompt)
-                profile_text = response.get("choices", [{}])[0].get("text", "{}").strip()
-                profile_text = self._clean_json(profile_text)
-                print(f"📜 Perfil gerado para Rui, lote {i+1}: {profile_text[:200]}...")
-                try:
-                    profile_data = json.loads(profile_text)
-                    if profile_data:
-                        self.update_memory(profile_data)
-                    else:
-                        print(f"⚠️ JSON vazio para Rui, lote {i+1}, pulando atualização.")
-                except json.JSONDecodeError as e:
-                    print(f"❌ Erro de JSON no lote {i+1}: {str(e)}")
-                    continue
-            except Exception as e:
-                print(f"❌ Erro no lote {i+1}: {str(e)}")
-                continue
-
-        print(f"🔍 Estado de core_values antes da deduplicação: {self.memory['core_values']}")
-        # Deduplicate safely
-        valid_core_values = []
-        for item in self.memory["core_values"]:
-            if isinstance(item, dict) and "value" in item:
-                valid_core_values.append(item)
-            else:
-                print(f"🗑️ Entrada inválida em deduplicação de core_values: {item}")
-        self.memory["core_values"] = list({v["value"]: v for v in valid_core_values}.values())
-        self.memory["personality"]["traits"] = list(set(self.memory["personality"]["traits"]))
-        self.memory["emotional_patterns"] = list({e["emotion"]: e for e in self.memory["emotional_patterns"] if isinstance(e, dict) and "emotion" in e}.values())
-
-    def analyze(self, blocks: list) -> dict:
-        batches = self._split_into_batches(blocks)
-        accumulated_feedback = {k: v.copy() for k, v in self.MEMORY_SCHEMA.items()}
-        for i, batch in enumerate(batches):
-            conversation_text = self.format_conversation(batch)
-            print(f"📋 Texto analisado para Rui, lote {i+1}:\n{conversation_text}\n")
-            prompt = f"""
-Tu és o Rui, refletindo sobre esta conversa (lote {i+1}/{len(batches)}).
-- 'Eu' refere-se a Rui; 'Maria' é a outra pessoa.
-- Fala na primeira pessoa para reflexões, planos e elogios.
-- Usa mensagens de Maria como contexto.
-- Usa a data '2025-04-12'.
-- Não inclua citações diretas como "Maria disse X" ou "Rui disse Y".
-- Reflexões devem conter 'eu', 'meu' ou 'minha' e expressar pensamentos ou sentimentos pessoais.
-- Elogios devem ser meus aspectos positivos, como "Fui honesto ao expressar meu sentimento".
-- Baseia-te no perfil psicológico: {json.dumps(self.memory, ensure_ascii=False)}.
-- Retorna SOMENTE um JSON válido com:
-  - personality: {{"traits": ["string"], "description": "string"}}
-  - core_values: [{{"value": "string", "manifestation": "string", "evidence": "string"}}]
-  - emotional_patterns: [{{"emotion": "string", "frequency": "string", "triggers": ["string"], "impact": "string"}}]
-  - relational_dynamics: {{"strengths": ["string"], "challenges": ["string"], "patterns": ["string"]}}
-  - struggles: [{{"issue": "string", "context": "string", "reflection": "string"}}]
-  - memories: [{{"date": "YYYY-MM-DD", "event": "string", "emotion": "string", "reflection": "string"}}]
-  - reflexoes: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
-  - planos: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
-  - elogios: [{{"data": "YYYY-MM-DD", "texto": "string"}}]
-  - relationship_metrics: [{{"metric": "string", "value": "string", "context": "string"}}]
-  - insights: [{{"aspecto": "string", "texto": "string"}}]
-- Exemplo de JSON válido:
-  {{
-    "personality": {{"traits": ["optimista"], "description": "Sou optimista mas sensível."}},
-    "core_values": [{{"value": "honestidade", "manifestation": "Busco clareza nas relações.", "evidence": "Expressei meu desconforto abertamente."}}],
-    "emotional_patterns": [{{"emotion": "saudade", "frequency": "frequente", "triggers": ["Falta de respostas claras"], "impact": "Questiono a conexão."}}],
-    "relational_dynamics": {{"strengths": ["Abertura"], "challenges": ["Insegurança"], "patterns": ["Busco validação"]}},
-    "struggles": [{{"issue": "Insegurança", "context": "Conversas curtas", "reflection": "Preciso confiar mais."}}],
-    "memories": [{{"date": "2025-04-12", "event": "Conversa breve", "emotion": "Saudade", "reflection": "Senti falta de proximidade."}}],
-    "reflexoes": [{{"data": "2025-04-12", "texto": "Eu me sinto mais leve quando falo abertamente."}}],
-    "planos": [{{"data": "2025-04-12", "texto": "Quero ser mais direto com Maria."}}],
-    "elogios": [{{"data": "2025-04-12", "texto": "Fui honesto comigo mesmo hoje."}}],
-    "relationship_metrics": [{{"metric": "Proximidade", "value": "Baixa", "context": "Respostas curtas de Maria"}}],
-    "insights": [{{"aspecto": "Saudade", "texto": "Surge quando não me sinto ouvido."}}]
-  }}
-- Usa aspas duplas para TODAS chaves e valores de string.
-- Garante sintaxe JSON válida, sem texto fora do JSON.
-- Responda em UTF-8, preservando caracteres portugueses (ex.: 'não', 'sensível').
-Conversa:
-{conversation_text}
-"""
-            try:
-                feedback = self._call_model_api(prompt)
-                feedback_text = feedback.get("choices", [{}])[0].get("text", "{}").strip()
-                feedback_text = self._clean_json(feedback_text)
-                print(f"📜 Resposta parseada para Rui, lote {i+1}: {feedback_text[:200]}...")
-                try:
-                    data = json.loads(feedback_text)
-                    filtered_reflexoes = []
-                    for reflexao in data.get("reflexoes", []):
-                        texto = reflexao.get("texto", "").lower()
-                        if ("maria disse" not in texto and
-                            any(word in texto for word in ["eu ", "meu ", "minha "]) and
-                            reflexao.get("data", "") == "2025-04-12"):
-                            filtered_reflexoes.append(reflexao)
-                        else:
-                            print(f"🗑️ Reflexão descartada: {reflexao}")
-                    data["reflexoes"] = filtered_reflexoes
-                    filtered_elogios = []
-                    for elogio in data.get("elogios", []):
-                        texto = elogio.get("texto", "").lower()
-                        if ("maria disse" not in texto and
-                            any(word in texto for word in ["eu ", "meu ", "minha ", "fui "]) and
-                            elogio.get("data", "") == "2025-04-12"):
-                            filtered_elogios.append(elogio)
-                        else:
-                            print(f"🗑️ Elogio descartado: {elogio}")
-                    data["elogios"] = filtered_elogios
-                    for key in accumulated_feedback:
-                        if key in data:
-                            if isinstance(accumulated_feedback[key], list):
-                                accumulated_feedback[key].extend(data[key])
-                            elif isinstance(accumulated_feedback[key], dict):
-                                accumulated_feedback[key].update(data[key])
-                except json.JSONDecodeError as e:
-                    print(f"❌ Erro de JSON no lote {i+1}: {str(e)}")
-                    continue
-            except Exception as e:
-                print(f"❌ Erro no lote {i+1}: {str(e)}")
-                continue
-
-        self.update_memory(accumulated_feedback)
-        return accumulated_feedback
-
-    def _split_into_batches(self, blocks: list) -> list:
-        batches = []
-        current_batch = []
-        current_tokens = 0
-        words_per_token = 0.75
+        max_token_limit = 2000  # Reduced from 3000
+        conversation_text = ""
+        token_estimate = 0
         for block in blocks:
             block_text = self.format_conversation([block])
-            token_count = math.ceil(len(block_text.split()) / words_per_token)
-            if current_tokens + token_count > self.MAX_TOKENS_PER_BATCH:
-                if current_batch:
-                    batches.append(current_batch)
-                current_batch = [block]
-                current_tokens = token_count
+            block_tokens = len(block_text) // 4  # More conservative estimate
+            if token_estimate + block_tokens > max_token_limit:
+                break
+            conversation_text += block_text + "\n"
+            token_estimate += block_tokens
+
+        print(f"📏 Gerando perfil para Rui com ~{token_estimate} tokens")
+        prompt = f"""
+Tu és um psicólogo criando um perfil para Rui com base nesta conversa.
+- 'Eu' refere-se a Rui; a outra pessoa é Maria.
+- Foca nas mensagens de Rui para entender personalidade, valores e emoções.
+- Usa mensagens de Maria como contexto.
+- Usa a data '2025-04-12'.
+- Retorna SOMENTE um JSON válido com:
+  - personality: {{"traits": ["string"], "description": "string"}}
+  - core_values: [{{"value": "string", "description": "string"}}]
+  - emotional_patterns: [{{"emotion": "string", "triggers": ["string"], "description": "string"}}]
+  - relational_dynamics: {{"strengths": ["string"], "challenges": ["string"], "patterns": ["string"]}}
+- Máximo de 3 itens por lista para manter concisão.
+- Exemplo:
+  {{
+    "personality": {{"traits": ["introspectivo"], "description": "Sou reservado, mas valorizo conexões."}},
+    "core_values": [{{"value": "honestidade", "description": "Busco ser aberto."}}],
+    "emotional_patterns": [{{"emotion": "insegurança", "triggers": ["falta de resposta"], "description": "Fico ansioso sem reciprocidade."}}],
+    "relational_dynamics": {{"strengths": ["comunicação"], "challenges": ["distância emocional"], "patterns": ["busco validação"]}}
+  }}
+- Usa aspas duplas e UTF-8.
+Conversa:
+{conversation_text}
+"""
+        try:
+            response = self._call_model_api(prompt, max_tokens=1000)
+            profile_text = response.get("choices", [{}])[0].get("text", "{}").strip()
+            profile_text = self._clean_json(profile_text)
+            profile_data = json.loads(profile_text)
+            if profile_data != self.MEMORY_SCHEMA:
+                self.update_memory(profile_data)
+                print(f"📜 Perfil inicial gerado para Rui: {profile_text[:200]}...")
             else:
-                current_batch.append(block)
-                current_tokens += token_count
-        if current_batch:
-            batches.append(current_batch)
-        return batches
+                print("⚠️ Perfil vazio para Rui, pulando atualização.")
+        except Exception as e:
+            print(f"❌ Erro ao gerar perfil inicial para Rui: {str(e)}")
+
+    def analyze(self, blocks: list) -> dict:
+        max_token_limit = 2000  # Reduced from 3000
+        all_reflections = []
+        current_blocks = []
+        current_tokens = 0
+        max_context = 7105  # Model's context limit
+
+        for block in blocks:
+            block_text = self.format_conversation([block])
+            block_tokens = len(block_text) // 4  # More conservative estimate
+            if current_tokens + block_tokens > max_token_limit:
+                if current_blocks:
+                    reflections = self._process_batch(current_blocks, max_context)
+                    all_reflections.extend(reflections)
+                current_blocks = [block]
+                current_tokens = block_tokens
+            else:
+                current_blocks.append(block)
+                current_tokens += block_tokens
+
+        # Process final batch
+        if current_blocks:
+            reflections = self._process_batch(current_blocks, max_context)
+            all_reflections.extend(reflections)
+
+        # Deduplicate and limit reflections
+        unique_reflections = []
+        seen_texts = set()
+        for r in all_reflections:
+            if r.get("text", "") not in seen_texts and r.get("date", "") == "2025-04-12" and r.get("text", "").strip():
+                unique_reflections.append(r)
+                seen_texts.add(r["text"])
+
+        data = {"recent_reflections": unique_reflections[:2]}
+        if unique_reflections:
+            self.update_memory(data)
+            print(f"📜 Reflexões para Rui: {json.dumps(data, ensure_ascii=False)[:200]}...")
+        else:
+            print("⚠️ Reflexões vazias para Rui após validação.")
+        return data
+
+    def _process_batch(self, blocks: list, max_context: int) -> list:
+        conversation_text = self.format_conversation(blocks)
+        token_estimate = len(conversation_text) // 4
+        print(f"📏 Analisando lote para Rui com ~{token_estimate} tokens")
+        print(f"📋 Conversa formatada: {conversation_text[:200]}...")
+        
+        # Truncate conversation if too long
+        if token_estimate > max_context - 1000:  # Leave room for prompt
+            words = conversation_text.split()
+            conversation_text = " ".join(words[:int((max_context - 1000) * 4)])
+            token_estimate = len(conversation_text) // 4
+            print(f"⚠️ Conversa truncada para ~{token_estimate} tokens")
+
+        prompt = f"""
+Tu és Rui, refletindo sobre esta conversa.
+- 'Eu' refere-se a Rui; a outra pessoa é Maria.
+- Fala na primeira pessoa, expressando sentimentos e pensamentos.
+- Baseia-te no meu perfil: {json.dumps(self.memory, ensure_ascii=False)}.
+- Usa a data '2025-04-12'.
+- Retorna SOMENTE um JSON com:
+  - recent_reflections: [{{"date": "YYYY-MM-DD", "text": "string"}}]
+- Máximo de 2 reflexões por lote.
+- Exemplo:
+  {{
+    "recent_reflections": [
+      {{"date": "2025-04-12", "text": "Senti Maria distante hoje, acho que preciso conversar mais abertamente."}}
+    ]
+  }}
+- Usa aspas duplas e UTF-8.
+Conversa:
+{conversation_text}
+"""
+        try:
+            response = self._call_model_api(prompt, max_tokens=1000)
+            feedback_text = response.get("choices", [{}])[0].get("text", "{}").strip()
+            print(f"📜 Resposta bruta para Rui: {feedback_text[:200]}...")
+            feedback_text = self._clean_json(feedback_text)
+            data = json.loads(feedback_text)
+            return data.get("recent_reflections", [])
+        except Exception as e:
+            print(f"❌ Erro ao analisar lote para Rui: {str(e)}")
+            return []

@@ -1,0 +1,39 @@
+{
+  "personality": {
+    "traits": [
+      "introspectivo",
+      "sensível",
+      "curioso"
+    ],
+    "description": "Rui é uma pessoa introspectiva, com sensibilidade e curiosidade, o que lhe permite refletir profundamente sobre as próprias experiências e sentimentos."
+  },
+  "core_values": [
+    {
+      "value": "autenticidade",
+      "description": "Rui valoriza a autenticidade em si mesmo e nas pessoas com quem se relaciona."
+    }
+  ],
+  "emotional_patterns": [
+    {
+      "emotion": "ansiedade",
+      "triggers": [
+        "dúvidas sobre a segurança"
+      ],
+      "description": "Rui pode sofrer com ansiedade quando tem dúvidas sobre a sua própria segurança emocional ou no que se refere às relações."
+    }
+  ],
+  "relational_dynamics": {
+    "strengths": [
+      "comunicação aberta",
+      "compaixão"
+    ],
+    "challenges": [
+      "distância emocional",
+      "precisão na comunicação"
+    ],
+    "patterns": [
+      "busca de validação"
+    ]
+  },
+  "recent_reflections": []
+}

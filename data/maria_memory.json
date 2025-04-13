@@ -1,0 +1,37 @@
+{
+  "personality": {
+    "traits": [
+      "empática",
+      "sensível",
+      "preocupada com os outros"
+    ],
+    "description": "Maria é uma pessoa sensível e empática, que se preocupa muito com os outros."
+  },
+  "core_values": [
+    {
+      "value": "compreensão",
+      "description": "Quero apoiar quem amo."
+    }
+  ],
+  "emotional_patterns": [
+    {
+      "emotion": "ansiedade",
+      "triggers": [
+        "conflito"
+      ],
+      "description": "Fico nervosa com discussões."
+    }
+  ],
+  "relational_dynamics": {
+    "strengths": [
+      "afeto"
+    ],
+    "challenges": [
+      "insegurança"
+    ],
+    "patterns": [
+      "busco proximidade"
+    ]
+  },
+  "recent_reflections": []
+}
